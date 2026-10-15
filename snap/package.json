@@ -1,0 +1,30 @@
+{
+  "name": "bridgesecure-guardian-snap",
+  "version": "0.1.0",
+  "description": "BridgeSecure transaction-insight Snap for MetaMask",
+  "main": "./dist/bundle.js",
+  "files": [
+    "dist/",
+    "snap.manifest.json",
+    "images/"
+  ],
+  "scripts": {
+    "build": "mm-snap build",
+    "serve": "mm-snap serve",
+    "start": "mm-snap watch",
+    "test": "jest"
+  },
+  "repository": { "type": "git", "url": "https://github.com/MISZURIE/Bridge-Crypto.git" },
+  "dependencies": {
+    "@metamask/snaps-sdk": "^12.1.0"
+  },
+  "devDependencies": {
+    "@metamask/snaps-cli": "^8.4.1",
+    "@metamask/snaps-jest": "^10.2.1",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^24.19.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.15",
+    "typescript": "^5.9.3"
+  }
+}

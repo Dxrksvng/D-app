@@ -1,0 +1,10 @@
+snap/node_modules
+snap/dist
+dist
+tools
+**/__pycache__
+**/*.pyc
+backend/.env
+data/.attestation_secret
+data/blocklists_cache.json*
+data/community_reports.jsonl

@@ -1,0 +1,22 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo. Builds the Dockerfile, serves over HTTPS.
+services:
+  - type: web
+    name: bridgesecure
+    runtime: docker
+    plan: free            # free sleeps after ~15 min idle (first request ~50 s); "starter" stays awake
+    region: singapore
+    healthCheckPath: /v1/health
+    autoDeploy: true
+    envVars:
+      - key: ATTESTATION_SECRET   # signs the on-chain seal; must stay the same across restarts
+        generateValue: true
+      - key: DATA_API_KEY         # Avalanche Data API key (paste in the dashboard; never commit it)
+        sync: false
+      - key: ROUTESCAN_API_KEY
+        sync: false
+      - key: SNAP_ID              # "none" = web alerts only; set to npm:bridgesecure-guardian-snap after the npm publish
+        value: none
+      - key: HOME_PAGE
+        value: wallet.html
+      - key: RATE_LIMIT_PER_MIN
+        value: "60"

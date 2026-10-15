@@ -1,0 +1,9 @@
+backend/.env
+data/blocklists_cache.json
+data/blocklists_cache.json.tmp
+data/community_reports.jsonl
+data/.attestation_secret
+snap/node_modules/
+snap/dist/
+__pycache__/
+*.pyc

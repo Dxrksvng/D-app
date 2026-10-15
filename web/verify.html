@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Verified by BridgeSecure</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>
+.seal{display:grid;gap:10px;text-align:center;justify-items:center}
+.seal .ring{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;font:600 26px var(--mono);border:4px solid var(--c);color:var(--c)}
+.seal.LOW{--c:var(--low)} .seal.MEDIUM{--c:var(--med)} .seal.HIGH{--c:var(--high)} .seal.UNKNOWN{--c:var(--unk)} .seal.none{--c:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px} .kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--mono);font-size:13px;overflow-wrap:anywhere}
+.lookup{display:grid;gap:8px}
+.list{display:grid;gap:8px;list-style:none;margin:0;padding:0}
+.list a{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-decoration:none;color:var(--ink)}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<header class="top"><div class="brand"><span class="mark" aria-hidden="true"></span><b>BridgeSecure</b><span class="tag">verify</span></div></header>
+<main class="wrap">
+  <section class="card lookup">
+    <h1>ตรวจสอบตราบนธุรกรรม</h1>
+    <label for="q">Transaction hash หรือที่อยู่กระเป๋า</label>
+    <div class="row"><input id="q" placeholder="0x…" spellcheck="false" autocomplete="off"><select id="chain" aria-label="เครือข่าย"></select></div>
+    <button id="go" class="btn primary block">ตรวจสอบ</button>
+  </section>
+  <section id="out" class="card" hidden aria-live="polite"></section>
+  <p class="foot">ตรานี้อยู่ใน input data ของธุรกรรมบน blockchain และมีลายเซ็นผูกกับผู้ส่ง ผู้รับ และจำนวนเงิน หากคัดลอกไปใส่ธุรกรรมอื่นจะตรวจไม่ผ่าน BridgeSecure ไม่ได้เก็บข้อมูลธุรกรรมไว้ที่ระบบ</p>
+</main>
+<script type="module" src="verify.js"></script>
+</body>
+</html>

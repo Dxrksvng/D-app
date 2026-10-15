@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: RiskGuard API
+  version: 2.0.0
+  description: |
+    Destination-address risk check before a user sends crypto. Warns, never blocks.
+    No user data is stored: sender/destination are used in memory for the check only
+    (results are cached in memory for 60 s). Community reports store only the reported
+    address, chain, category and time.
+servers:
+  - url: /
+paths:
+  /v1/risk:
+    get:
+      summary: Check a destination address
+      parameters:
+        - { name: chain_id, in: query, required: true, schema: { type: integer, enum: [43113, 43114, 1] }, description: "43113 Fuji, 43114 Avalanche C-Chain, 1 Ethereum" }
+        - { name: to, in: query, required: true, schema: { type: string, pattern: '^0x[0-9a-fA-F]{40}$' } }
+        - { name: from, in: query, required: false, schema: { type: string, pattern: '^0x[0-9a-fA-F]{40}$' }, description: "Connected wallet. Enables the address-poisoning look-alike check and first-time-recipient notice." }
+        - { name: value_wei, in: query, required: false, schema: { type: string, pattern: '^\d{1,78}$' }, description: "Amount in wei. With `from`, and when the destination is a wallet (not a contract), the response includes `attestation` to embed as the transaction's data." }
+      responses:
+        '200': { description: Risk result, content: { application/json: { schema: { $ref: '#/components/schemas/RiskResult' } } } }
+        '400': { description: invalid_address | unsupported_chain, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: rate_limited (see Retry-After header), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /v1/chains:
+    get:
+      summary: Supported networks (use for the network picker and wallet_addEthereumChain)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { chains: { type: array, items: { $ref: '#/components/schemas/Chain' } } } } } } }
+  /v1/reports:
+    post:
+      summary: Report an address (stored as unverified; shown as MEDIUM signal COMMUNITY_REPORTED)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chain_id, address]
+              properties:
+                chain_id: { type: integer }
+                address: { type: string }
+                category: { type: string, enum: [phishing, drainer, impersonation, investment_scam, address_poisoning, other], default: other }
+      responses:
+        '201': { description: Stored }
+        '400': { description: Invalid input }
+  /v1/verify/tx:
+    get:
+      summary: Read a transaction from the chain and verify its BridgeSecure attestation (nothing is stored server-side)
+      parameters:
+        - { name: chain_id, in: query, required: true, schema: { type: integer } }
+        - { name: tx_hash, in: query, required: true, schema: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' } }
+      responses:
+        '200': { description: "found, attested, verification{valid, level, trust_score, signals, checked_at, request_id, seconds_from_check_to_block, reason?}" }
+        '503': { description: chain data temporarily unavailable }
+  /v1/verify/address:
+    get:
+      summary: Recent outgoing transactions of an address that carry a BridgeSecure attestation, each verified
+      parameters:
+        - { name: chain_id, in: query, required: true, schema: { type: integer } }
+        - { name: address, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: "{ count, transactions: [ same shape as /v1/verify/tx ] }" }
+  /v1/rules:
+    get: { summary: Rule registry with audit validation numbers, responses: { '200': { description: OK } } }
+  /v1/health:
+    get: { summary: Service, upstream and blocklist status, responses: { '200': { description: OK } } }
+components:
+  schemas:
+    RiskResult:
+      type: object
+      required: [level, signals, address, chain_id, engine_version]
+      properties:
+        request_id: { type: string }
+        chain_id: { type: integer }
+        address: { type: string, description: lower-case }
+        level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, UNKNOWN]
+          description: |
+            HIGH = proven danger (listed, drainer behaviour, or look-alike of your own past recipient).
+            MEDIUM = caution signals. LOW = no signal found. UNKNOWN = no history / data source down (NOT "safe").
+        signals: { type: array, items: { $ref: '#/components/schemas/Signal' }, description: "Sorted high → info" }
+        stats:
+          type: object
+          properties:
+            n_total: { type: integer }
+            n_in: { type: integer }
+            n_out: { type: integer }
+            first_seen: { type: integer, nullable: true }
+            last_seen: { type: integer, nullable: true }
+            history_capped: { type: boolean }
+        is_contract: { type: boolean }
+        trust_score: { type: integer, description: "0-100 severity index (NOT a probability); formula in /v1/rules" }
+        attestation:
+          type: object
+          description: Present only when from + value_wei were sent and the destination is a wallet
+          properties:
+            memo: { type: string, example: "BRIDGESECURE|v1|c=43113|l=LOW|ts=95|s=-|t=1792079958|r=409ad926082c|k=5042ff35d36c27dc" }
+            data_hex: { type: string, description: "Put this in eth_sendTransaction `data`" }
+            valid_until: { type: integer, description: "unix seconds; re-check after this" }
+            bound_to: { type: object, description: "chain_id, from, to, value_wei the signature covers" }
+        engine_version: { type: string }
+        data_sources: { type: array, items: { type: string }, example: [avalanche-data-api, rpc, blocklists] }
+        explorer: { type: string, description: "Base URL; tx link = {explorer}/tx/{hash}" }
+        checked_at: { type: integer }
+        latency_ms: { type: integer }
+        cached: { type: boolean }
+        disclaimer: { $ref: '#/components/schemas/I18n' }
+    Signal:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [L0_LISTED, POISONING_LOOKALIKE, R4_DRAINER, COMMUNITY_REPORTED, L2_LINKED, R6_ZERO_VALUE, TOKEN_CONTRACT,
+                 CONTRACT, FIRST_TIME_RECIPIENT, HIGH_VOLUME, THIN_HISTORY, NO_HISTORY, CHECK_INCOMPLETE]
+        severity: { type: string, enum: [high, medium, info] }
+        title: { $ref: '#/components/schemas/I18n' }
+        detail: { $ref: '#/components/schemas/I18n' }
+        evidence_tx: { type: array, items: { type: string }, description: "Up to 3 tx hashes" }
+        validation:
+          type: object
+          description: "status: validated | validated-low-recall | deterministic | not-yet-validated | unverified | informational; validated entries include recall/fpr per chain from the E5 audit"
+    I18n: { type: object, properties: { th: { type: string }, en: { type: string } } }
+    Chain:
+      type: object
+      properties:
+        chain_id: { type: integer }
+        name: { type: string }
+        short: { type: string }
+        testnet: { type: boolean }
+        symbol: { type: string }
+        rpc: { type: string }
+        explorer: { type: string }
+        faucet: { type: string }
+        data_source: { type: string }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { $ref: '#/components/schemas/I18n' }

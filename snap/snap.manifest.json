@@ -1,0 +1,29 @@
+{
+  "version": "0.1.0",
+  "description": "Warns before you send to risky wallets. Explains every reason; never blocks.",
+  "proposedName": "BridgeSecure Guardian",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MISZURIE/Bridge-Crypto.git"
+  },
+  "source": {
+    "shasum": "NFyoXMrQ9TnIVL2tZF0TrRveKDxBYea8EV2MjEgGORk=",
+    "location": {
+      "npm": {
+        "filePath": "dist/bundle.js",
+        "iconPath": "images/icon.svg",
+        "packageName": "bridgesecure-guardian-snap",
+        "registry": "https://registry.npmjs.org/"
+      }
+    }
+  },
+  "initialPermissions": {
+    "endowment:transaction-insight": {
+      "allowTransactionOrigin": true
+    },
+    "endowment:network-access": {},
+    "endowment:lifecycle-hooks": {}
+  },
+  "platformVersion": "12.1.0",
+  "manifestVersion": "0.1"
+}

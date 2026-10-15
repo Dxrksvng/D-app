@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BridgeSecure · ตรวจปลายทางก่อนโอน</title>
+<meta name="description" content="ตรวจความเสี่ยงของที่อยู่ปลายทางก่อนโอนเหรียญ เตือนพร้อมเหตุผล ไม่บล็อก การตัดสินใจเป็นของคุณ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b class="wordmark">BRIDGE<sup>x</sup></b><span class="tag">pilot · reference</span></div>
+  <div class="top-right">
+    <label class="net"><span class="sr">เครือข่าย</span><select id="network"></select></label>
+    <button id="connectBtn" class="btn primary">Connect</button>
+    <button id="accountBtn" class="btn ghost" hidden title="กดเพื่อตัดการเชื่อมต่อ"></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card" aria-labelledby="sendTitle">
+    <div class="card-head">
+      <h1 id="sendTitle">ส่งเหรียญอย่างปลอดภัย</h1>
+      <span id="walletState" class="muted">ยังไม่ได้เชื่อมต่อกระเป๋า</span>
+    </div>
+    <form id="sendForm" novalidate>
+      <label for="to">ที่อยู่ปลายทาง (วาง หรือวางข้อความจาก QR)</label>
+      <div class="row">
+        <input id="to" name="to" autocomplete="off" spellcheck="false" placeholder="0x… หรือ ethereum:0x…" inputmode="text">
+        <button type="button" id="pasteBtn" class="btn small ghost">วาง</button>
+      </div>
+      <p id="toHint" class="hint"></p>
+      <label for="amount">จำนวน <span id="symbol">AVAX</span></label>
+      <div class="row">
+        <input id="amount" name="amount" inputmode="decimal" placeholder="0.0" autocomplete="off">
+        <button type="button" id="maxBtn" class="btn small ghost" disabled>สูงสุด</button>
+      </div>
+      <p id="balance" class="hint"></p>
+      <button id="sendBtn" class="btn primary block" type="submit">ส่ง</button>
+      <p class="fine">กด "ส่ง" แล้ว BridgeSecure จะวิเคราะห์ปลายทางก่อน และแสดงผลให้คุณตัดสินใจ ก่อนเปิด MetaMask</p>
+    </form>
+  </section>
+
+  <section id="resultCard" class="card result" hidden aria-live="polite">
+    <div class="seal-row">
+      <div id="sealRing" class="ring">–</div>
+      <div><h2 id="resultTitle"></h2><p id="resultSub" class="muted"></p></div>
+    </div>
+    <dl id="resultMeta" class="kv"></dl>
+    <div class="row wrap-row">
+      <a id="txLink" class="btn ghost" target="_blank" rel="noopener" hidden>ดูใน Explorer (Input Data → UTF-8)</a>
+      <a id="verifyLink" class="btn ghost" target="_blank" rel="noopener" hidden>หน้ายืนยันตรา</a>
+      <button id="newBtn" class="btn primary" type="button">โอนรายการใหม่</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="histTitle">
+    <div class="card-head">
+      <h2 id="histTitle">ประวัติธุรกรรมที่ผ่าน BridgeSecure</h2>
+      <button id="histRefresh" class="btn small ghost" type="button">รีเฟรช</button>
+    </div>
+    <p id="histNote" class="hint">เชื่อมต่อกระเป๋าเพื่อดูประวัติ ข้อมูลอ่านจาก blockchain โดยตรง BridgeSecure ไม่ได้เก็บไว้</p>
+    <ul id="history" class="history"></ul>
+  </section>
+
+  <section id="snapCard" class="card" hidden>
+    <h2>เตือนภัยในหน้าต่าง MetaMask ด้วย</h2>
+    <p class="muted">ติดตั้ง BridgeSecure Guardian (Snap) แล้ว ทุกธุรกรรมใน MetaMask (รวมการกด Send ในแอปเองและการ approve โทเคน) จะมีผลวิเคราะห์ของเรา และถ้าเป็นที่อยู่อันตรายจะขึ้น CRITICAL SECURITY ALERT ก่อนยืนยัน</p>
+    <button id="snapBtn" class="btn primary" type="button">ติดตั้ง BridgeSecure Guardian</button>
+  </section>
+
+  <p class="foot">เวอร์ชันระบบ <span id="ver">–</span> · <a href="/openapi.yaml" target="_blank" rel="noopener">API</a> · <a href="/v1/rules" target="_blank" rel="noopener">กฎและผลทดสอบ</a> · <a href="verify.html" target="_blank" rel="noopener">ตรวจสอบธุรกรรม</a> · <span id="health" class="muted"></span></p>
+</main>
+
+<!-- Risk alert sheet (matches the design: BRIDGE · headline · one-line reason · Show more reason) -->
+<dialog id="alertSheet" class="sheet" aria-labelledby="alertTitle">
+  <div class="sheet-body">
+    <b class="wordmark center">BRIDGE<sup>x</sup></b>
+    <p id="alertLevel" class="alert-level"></p>
+    <h2 id="alertTitle" class="alert-title"></h2>
+    <p id="alertLead" class="alert-lead"></p>
+    <div class="score-row"><span>Trust Score</span><b id="alertScore">–</b></div>
+    <details id="reasons" class="reasons">
+      <summary>Show more reason</summary>
+      <ol id="reasonList" class="signals"></ol>
+      <dl id="alertMeta" class="kv small"></dl>
+    </details>
+    <label id="ackRow" class="ack" hidden><input type="checkbox" id="ack"> ฉันเข้าใจความเสี่ยง และยังต้องการโอนต่อ</label>
+    <div class="actions">
+      <button id="cancelBtn" class="btn ghost" type="button">ยกเลิก ไม่โอน</button>
+      <button id="proceedBtn" class="btn primary" type="button">ดำเนินการต่อใน MetaMask</button>
+    </div>
+    <button id="reportBtn" class="link" type="button">รายงานที่อยู่นี้ว่าเป็นมิจฉาชีพ</button>
+  </div>
+</dialog>
+
+<dialog id="walletDialog" aria-labelledby="wdTitle">
+  <div class="dlg">
+    <h2 id="wdTitle">เลือกกระเป๋า</h2>
+    <ul id="walletList" class="wallets"></ul>
+    <div id="noWallet" class="empty" hidden>
+      <p>ไม่พบกระเป๋าในเบราว์เซอร์นี้</p>
+      <p class="muted">บนคอมพิวเตอร์: ติดตั้ง <a href="https://metamask.io/download/" target="_blank" rel="noopener">MetaMask</a> แล้วรีเฟรชหน้านี้</p>
+      <p class="muted">บนมือถือ: เปิดหน้านี้ในแอป MetaMask</p>
+      <div class="row wrap-row"><a id="mmLink" class="btn ghost" rel="noopener">เปิดใน MetaMask</a><a id="trustLink" class="btn ghost" rel="noopener">เปิดใน Trust Wallet</a></div>
+    </div>
+    <button id="closeDialog" class="btn ghost block">ปิด</button>
+  </div>
+</dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
