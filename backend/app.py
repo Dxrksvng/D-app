@@ -199,7 +199,7 @@ class Handler(BaseHTTPRequestHandler):
                                         'audit': 'Pre-registered E5 replay on 894 real 2024-2026 transfers; see audit/report',
                                         'trust_score': {'meaning': "severity index 0-100 computed from the address's own evidence; higher = fewer risk signals; NOT a probability and NOT a constant per level",
                                                         'evidence': 'age_days, n_all (tx across chains), chains_active, zero_share; returned in `evidence`',
-                                                        'formula': {'HIGH': '25 - 5*(extra high) - 2*(medium) - 3*(extra lists) + 0.1*pos, band 0-25',
+                                                        'formula': {'HIGH': '25 - 5*(extra high) - 2*(medium) - 3*(extra lists) + 0.1*pos, band 0-28',
                                                                     'MEDIUM': '60 - 7*(medium signals) - 10*zero_share + 0.3*pos, band 30-69',
                                                                     'LOW': '70 + pos, max 98',
                                                                     'pos': '12*age(<=730d) + 12*log10(1+tx)/3 + 2*(extra active chains), 0-28 points'}},

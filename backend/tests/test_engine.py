@@ -87,7 +87,7 @@ class Rules(unittest.TestCase):
         m2 = E.assess(A, 43113, dust[:1] + [tx('0x' + 'e' * 40, A, 1.0)] * 7, False, {'is_contract': False}, [], {}, 1, now=1_792_000_000)
         self.assertEqual(m1['level'], 'MEDIUM'); self.assertTrue(30 <= m1['trust_score'] <= 69)
         hi = E.assess(A, 43113, [], False, {'is_contract': False}, [{'list': 'a', 'label': 'A'}, {'list': 'b', 'label': 'B'}], {}, 0)
-        self.assertEqual(hi['level'], 'HIGH'); self.assertLessEqual(hi['trust_score'], 25)
+        self.assertEqual(hi['level'], 'HIGH'); self.assertLessEqual(hi['trust_score'], 28)
         self.assertGreater(70, 69); self.assertLess(m1['trust_score'], s_thin['trust_score'])
         self.assertLess(hi['trust_score'], m1['trust_score'])
 

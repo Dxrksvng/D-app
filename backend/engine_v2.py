@@ -200,7 +200,7 @@ def assess(dest, chain, dest_txs, capped, contract, l0_hits, linked, community_r
 
 def trust_score(level, signals, ev):
     """Severity index 0-100 computed from this address's own evidence (NOT a probability, NOT a constant per level).
-    The level fixes the band (HIGH 0-25, MEDIUM 30-69, LOW 70-98); inside the band the score moves with what was measured:
+    The level fixes the band (HIGH 0-28, MEDIUM 30-69, LOW 70-98); inside the band the score moves with what was measured:
     account age, transaction depth, chains with activity, listed counterparties/lists and how much zero-value dusting."""
     highs = [s for s in signals if s['severity'] == 'high']; meds = [s for s in signals if s['severity'] == 'medium']
     age = min(ev.get('age_days') or 0, 730) / 730
