@@ -1,0 +1,145 @@
+<title>RiskGuard Frontend Handoff</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single column engineering brief; code blocks and tables scroll inside their own frames */
+:root{--bg:#F4F6F9;--surface:#FFFFFF;--ink:#131824;--muted:#5A6476;--line:#DCE1E9;--accent:#1F4FD1;--soft:#E7EDFB;
+  --low:#1C7C4E;--lowbg:#E2F4EA;--med:#9A5A00;--medbg:#FCEFD9;--high:#B3261E;--highbg:#FCE6E4;--unk:#4E5870;--unkbg:#E9ECF2;
+  --f:"IBM Plex Sans Thai",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1117;--surface:#161B24;--ink:#E8EBF1;--muted:#98A2B6;--line:#283041;--accent:#7FA2FF;--soft:#1C2540;
+  --low:#62C996;--lowbg:#13301F;--med:#EDB45A;--medbg:#33260E;--high:#F2877E;--highbg:#3A1715;--unk:#A9B2C6;--unkbg:#232A38;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E1117;--surface:#161B24;--ink:#E8EBF1;--muted:#98A2B6;--line:#283041;--accent:#7FA2FF;--soft:#1C2540;
+  --low:#62C996;--lowbg:#13301F;--med:#EDB45A;--medbg:#33260E;--high:#F2877E;--highbg:#3A1715;--unk:#A9B2C6;--unkbg:#232A38;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.7 var(--f);margin:0;padding-inline:16px;padding-block:28px 64px}
+main{max-width:860px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:clamp(26px,4vw,36px);line-height:1.25;margin:0;text-wrap:balance}
+h2{font-size:21px;margin:0;padding-top:10px;border-top:2px solid var(--ink)}
+h3{font-size:16px;margin:0}
+p{margin:0;max-width:70ch}
+section{display:grid;gap:14px;min-width:0}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px}
+code{font-family:var(--mono);font-size:.88em;background:var(--soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font:13px/1.65 var(--mono);margin:0}
+pre code{background:none;padding:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:560px}
+th,td{padding:9px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+thead th{font-size:12.5px;color:var(--muted);font-weight:500}
+tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.step b{font-size:14.5px} .step span{font-size:13px;color:var(--muted)}
+.step .n{font:500 12px var(--mono);color:var(--accent)}
+.rules{display:grid;gap:8px;padding:0;margin:0;list-style:none;counter-reset:r}
+.rules li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:grid;grid-template-columns:28px 1fr;gap:8px;counter-increment:r}
+.rules li::before{content:counter(r);font:600 14px var(--mono);color:var(--accent)}
+.lvl{display:inline-block;font:600 12.5px var(--mono);padding:2px 9px;border-radius:999px}
+.HIGH{background:var(--highbg);color:var(--high)} .MEDIUM{background:var(--medbg);color:var(--med)} .LOW{background:var(--lowbg);color:var(--low)} .UNKNOWN{background:var(--unkbg);color:var(--unk)}
+.status{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.st{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px;border-top:3px solid var(--c)}
+.st.ok{--c:var(--low)} .st.todo{--c:var(--med)}
+.st b{font-size:15px} .st span{font-size:13.5px;color:var(--muted)}
+ul{margin:0;padding-left:20px;display:grid;gap:4px;max-width:72ch}
+.cmp td:first-child{width:34%}
+.note{border-left:3px solid var(--med);background:var(--medbg);padding:10px 14px;border-radius:0 8px 8px 0;font-size:14.5px}
+</style>
+<main>
+<header style="display:grid;gap:12px">
+  <div class="eyebrow">Backend → Frontend · BridgeSecure pilot on MetaMask · v2.1</div>
+  <h1>ส่งมอบ Backend ให้ทีม Frontend</h1>
+  <p class="lede">ทีม Backend เป็นระบบหลังบ้านของ DApp ส่งมอบ API วิเคราะห์ปลายทาง, SDK ต่อ MetaMask พร้อม flow การโอนที่มีการตรวจ, ตรา "Verified by BridgeSecure" บนทุกธุรกรรม และ MetaMask Snap ส่วนหน้าจอทั้งหมดเป็นงานของทีม Frontend</p>
+</header>
+
+<section>
+  <h2>สถานะ</h2>
+  <div class="status">
+    <div class="st ok"><b>API วิเคราะห์ปลายทาง</b><span>engine ที่ผ่าน audit · Avalanche Data API + Routescan + blocklist 12,159 address · 27/27 tests</span></div>
+    <div class="st ok"><b>SDK + guardedSend()</b><span>MetaMask Connect / EIP-6963 · QR แบบ EIP-681 · popup ก่อนส่ง · ทดสอบ flow ด้วย mock wallet แล้ว</span></div>
+    <div class="st ok"><b>ตราบนทุกธุรกรรม</b><span>ลงลายเซ็นแล้ว ผูกกับผู้ส่ง ผู้รับ และจำนวน · หน้ายืนยัน verify.html · backend ไม่เก็บข้อมูล</span></div>
+    <div class="st todo"><b>ยังต้องทำ</b><span>ทดสอบกับ MetaMask จริงบน Fuji · deploy HTTPS · build และทดสอบ Snap บน Flask (ต้องใช้ Node.js)</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>ข้อจำกัดของ MetaMask ที่กำหนดสถาปัตยกรรม</h2>
+  <div class="tw"><table class="cmp">
+    <thead><tr><th>ในดีไซน์ (Frontend PoC.pdf)</th><th>ทำได้แค่ไหน</th><th>วิธีของเรา</th></tr></thead>
+    <tbody>
+      <tr><td>ผู้ใช้กรอกปลายทางในหน้า Send <b>ของ MetaMask</b></td><td>DApp มองไม่เห็นหน้าจอภายในของ MetaMask</td><td>ให้กรอกหรือสแกน QR <b>ในหน้า Contract ของ DApp</b></td></tr>
+      <tr><td>เด้ง alert ก่อนผู้ใช้ยืนยัน</td><td>ทำได้ทั้งมือถือและ desktop</td><td><code>guardedSend()</code> เรียก popup ของ Frontend <b>ก่อน</b> เปิด MetaMask</td></tr>
+      <tr><td>alert ทับหน้า Review ของ MetaMask (หน้า 2)</td><td>ทำได้ผ่าน Snap บน extension เท่านั้น · popup ระดับ critical มีเฉพาะ Flask · ถ้าเรียก API ของเราบน MetaMask ปกติต้องผ่าน allowlist</td><td><code>poc/snap/</code> source พร้อม ยังไม่ได้ build</td></tr>
+      <tr><td>ผลวิเคราะห์บนทุกธุรกรรม (หน้า 4)</td><td>ทำได้</td><td>ตราที่ลงลายเซ็นแล้วใน input data ของธุรกรรม + <code>/v1/verify/tx</code></td></tr>
+    </tbody></table></div>
+  <p class="note">Pilot บน iPhone ตามภาพในดีไซน์ใช้ flow ของ DApp + MetaMask Connect ส่วน Snap เป็นช่องทางเสริมบน desktop สำหรับธุรกรรมที่ไม่ได้เริ่มจาก DApp ของเรา</p>
+</section>
+
+<section>
+  <h2>Flow ของ Pilot</h2>
+  <div class="flow">
+    <div class="step"><span class="n">1</span><b>Connect</b><span><code>wallet.useProvider()</code> (MetaMask Connect)</span></div>
+    <div class="step"><span class="n">2</span><b>วางหรือสแกน QR</b><span><code>parsePaymentUri()</code></span></div>
+    <div class="step"><span class="n">3</span><b>วิเคราะห์</b><span><code>GET /v1/risk</code> 0.4–6 วินาที</span></div>
+    <div class="step"><span class="n">4</span><b>Popup</b><span><code>decide(risk)</code> = UI ของ Frontend</span></div>
+    <div class="step"><span class="n">5</span><b>MetaMask Review</b><span>ส่งพร้อมตราใน <code>data</code></span></div>
+    <div class="step"><span class="n">6</span><b>Verified</b><span><code>/v1/verify/tx</code> · Trust Score</span></div>
+  </div>
+<pre><code>import { RiskGuardClient, WalletManager, guardedSend, parsePaymentUri, units } from '/sdk/riskguard.js';
+
+const api = new RiskGuardClient({ apiBase: 'https://api.bridgesecure.com' });
+const wallet = new WalletManager({ chains: await api.getChains() });
+await wallet.useProvider(metamaskConnectProvider, { name: 'MetaMask' });   // มือถือ
+// desktop: await wallet.discover(); await wallet.connect(uuid);
+
+const p = parsePaymentUri(qrText);   // 0x… หรือ ethereum:0x…@43113?value=…
+const r = await guardedSend({
+  api, wallet, chainId: p.chainId ?? 43113, to: p.address, valueWei: units.parse(amount),
+  decide: (risk) =&gt; showBridgeAlert(risk),   // UI ของ Frontend: true = โอนต่อ, false = ยกเลิก
+  onStage: (stage, info) =&gt; updateProgress(stage, info),
+});
+// r.status 'cancelled' | 'confirmed' | 'failed' · r.risk · r.txHash · r.verification</code></pre>
+</section>
+
+<section>
+  <h2>ข้อมูลที่ popup ใช้</h2>
+  <div class="tw"><table>
+    <thead><tr><th>ฟิลด์</th><th>ใช้ใน UI</th></tr></thead>
+    <tbody>
+      <tr><td><code>level</code></td><td><span class="lvl HIGH">HIGH</span> CRITICAL SECURITY ALERT · <span class="lvl MEDIUM">MEDIUM</span> ควรระวัง · <span class="lvl LOW">LOW</span> ไม่พบสัญญาณ · <span class="lvl UNKNOWN">UNKNOWN</span> ข้อมูลไม่พอ (ห้ามใช้สีเขียว)</td></tr>
+      <tr><td><code>trust_score</code></td><td>"Trust Score 95/100" เป็นดัชนีความรุนแรง ไม่ใช่ความน่าจะเป็น (สูตรอยู่ที่ <code>/v1/rules</code>)</td></tr>
+      <tr><td><code>signals[0].title.th</code></td><td>ข้อความหลักบน popup</td></tr>
+      <tr><td><code>signals[].detail.th</code>, <code>evidence_tx[]</code></td><td>หน้า "Show more reason" พร้อมลิงก์หลักฐาน <code>{explorer}/tx/{hash}</code></td></tr>
+      <tr><td><code>signals[].validation</code></td><td>"ผ่านการทดสอบย้อนหลัง 2024–26: จับได้ 59% เตือนผิด 1.5%"</td></tr>
+    </tbody></table></div>
+  <p>ข้อความบน popup ต้องไม่เกินหลักฐาน เช่น ห้ามเขียน "ฟอกเงิน" ถ้า signal ไม่ได้ระบุแบบนั้น · เราเตือน ไม่บล็อก ผู้ใช้ต้องโอนต่อได้เสมอ</p>
+</section>
+
+<section>
+  <h2>ตรา "Verified by BridgeSecure" บนทุกธุรกรรม</h2>
+  <ul>
+    <li><b>ที่เก็บ:</b> อยู่ใน input data ของธุรกรรมโอนเอง (86 bytes, gas เพิ่มประมาณ 1,400) เปิด Explorer → Input Data → UTF-8 จะเห็น <code>BRIDGESECURE|v1|c=43113|l=LOW|ts=95|…|k=…</code></li>
+    <li><b>ปลอมหรือคัดลอกไม่ได้:</b> ลายเซ็น HMAC ผูกกับ chain, ผู้ส่ง, ผู้รับ และจำนวนเงิน</li>
+    <li><b>หน้ายืนยัน:</b> <code>verify.html?chain_id=43113&amp;tx=0x…</code> หรือใส่ที่อยู่กระเป๋าเพื่อดูทุกธุรกรรมที่มีตรา</li>
+    <li><b>Backend ไม่เก็บข้อมูลธุรกรรม:</b> อ่านจาก chain ใหม่ทุกครั้ง · ใส่ตราเฉพาะเมื่อปลายทางเป็นกระเป๋า (ไม่ใช่ contract) · ปิดได้ด้วย <code>attest: false</code></li>
+    <li><b>ใช้คำว่า "Verified by BridgeSecure"</b> ไม่ใช่ "Validator" เพราะเราไม่ได้เป็น validator ของ blockchain</li>
+  </ul>
+</section>
+
+<section>
+  <h2>ทดสอบ</h2>
+<pre><code>python poc/backend/app.py                                       # http://localhost:8080
+cd poc &amp;&amp; python -m unittest discover -s backend/tests -t .      # 31 tests</code></pre>
+  <div class="tw"><table>
+    <thead><tr><th>ผลที่คาด</th><th>ปลายทางบน Fuji</th></tr></thead>
+    <tbody>
+      <tr><td><span class="lvl HIGH">HIGH</span></td><td><code>0xa9fac309ea02c09f5eb7137bbaaca80032dcea5b</code> (อยู่ในรายชื่อ ScamSniffer จริง ห้ามโอนบน mainnet)</td></tr>
+      <tr><td><span class="lvl MEDIUM">MEDIUM</span></td><td><code>0xd00ae08403B9bbb9124bB305C09058E32C39A48c</code> (contract ของ WAVAX)</td></tr>
+      <tr><td><span class="lvl MEDIUM">MEDIUM</span></td><td>ที่อยู่ใหม่ที่ไม่เคยใช้บนเครือข่ายใดเลย (ตรวจ Fuji, C-Chain, Ethereum, nonce/ยอดเงิน)</td></tr>
+      <tr><td>QR</td><td><code>ethereum:0x9f8c163cBA728e99993ABe7495F06c0A3c8Ac8b9@43113?value=1e16</code></td></tr>
+    </tbody></table></div>
+  <ul>
+    <li>DApp flow โอนได้เฉพาะเหรียญหลัก (AVAX/ETH) ส่วน Snap ตรวจ ERC-20 transfer และ approve ได้</li>
+    <li>MetaMask บนมือถือต้องใช้ HTTPS · production ต้องตั้ง <code>ATTESTATION_SECRET</code> ให้ทุก instance ใช้ค่าเดียวกัน</li>
+  </ul>
+</section>
+</main>

@@ -76,11 +76,23 @@ components:
         address: { type: string, description: lower-case }
         level:
           type: string
-          enum: [LOW, MEDIUM, HIGH, UNKNOWN]
+          enum: [LOW, MEDIUM, HIGH]
           description: |
             HIGH = proven danger (listed, drainer behaviour, or look-alike of your own past recipient).
-            MEDIUM = caution signals. LOW = no signal found. UNKNOWN = no history / data source down (NOT "safe").
+            MEDIUM = caution signals, including a brand-new address unused on every chain checked, or history that could not be read.
+            LOW = every check passed. Every result carries `verdict` (why) and `checks` (what was checked).
         signals: { type: array, items: { $ref: '#/components/schemas/Signal' }, description: "Sorted high → info" }
+        verdict: { $ref: '#/components/schemas/I18n', description: "One line: why this level was given" }
+        checks:
+          type: array
+          description: "Every check that ran: blocklists, reports, poisoning, destination type, history on this chain and on each other supported chain, Avalanche L1 activity (Data API), behaviour patterns"
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              result: { type: string, enum: [pass, flag, skip], description: "skip = that source could not be read" }
+              th: { type: string }
+              en: { type: string }
         stats:
           type: object
           properties:
@@ -90,8 +102,18 @@ components:
             first_seen: { type: integer, nullable: true }
             last_seen: { type: integer, nullable: true }
             history_capped: { type: boolean }
+            n_all_chains: { type: integer, description: "transactions analysed across all supported chains" }
+            nonce: { type: integer, nullable: true }
         is_contract: { type: boolean }
-        trust_score: { type: integer, description: "0-100 severity index (NOT a probability); formula in /v1/rules" }
+        trust_score: { type: integer, description: "0-100 severity index computed from this address's own evidence (NOT a probability, NOT a constant per level); formula in /v1/rules" }
+        evidence:
+          type: object
+          description: "The measured inputs behind trust_score, read live from the chains"
+          properties:
+            age_days: { type: number, description: "days since the oldest transaction seen on any supported chain" }
+            n_all: { type: integer }
+            chains_active: { type: integer }
+            zero_share: { type: number }
         attestation:
           type: object
           description: Present only when from + value_wei were sent and the destination is a wallet
@@ -113,7 +135,7 @@ components:
         code:
           type: string
           enum: [L0_LISTED, POISONING_LOOKALIKE, R4_DRAINER, COMMUNITY_REPORTED, L2_LINKED, R6_ZERO_VALUE, TOKEN_CONTRACT,
-                 CONTRACT, FIRST_TIME_RECIPIENT, HIGH_VOLUME, THIN_HISTORY, NO_HISTORY, CHECK_INCOMPLETE]
+                 CONTRACT, FRESH_ADDRESS, UNVERIFIABLE, CROSS_CHAIN_ACTIVE, FIRST_TIME_RECIPIENT, HIGH_VOLUME, THIN_HISTORY]
         severity: { type: string, enum: [high, medium, info] }
         title: { $ref: '#/components/schemas/I18n' }
         detail: { $ref: '#/components/schemas/I18n' }

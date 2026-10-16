@@ -64,7 +64,9 @@ const result = await guardedSend({
 
 | ฟิลด์ | ใช้ทำอะไรใน UI |
 |---|---|
-| `level` | `HIGH` → "CRITICAL SECURITY ALERT" (แดง) · `MEDIUM` (ส้ม) · `LOW` (เขียว) · `UNKNOWN` (เทา **ห้ามใช้เขียว**) |
+| `level` | `HIGH` → "CRITICAL SECURITY ALERT" (แดง) · `MEDIUM` (ส้ม) · `LOW` (เขียว) · ไม่มีระดับ "ข้อมูลไม่พอ" อีกแล้ว ทุกผลมีเหตุผลเสมอ |
+| `verdict.th` | บรรทัดเหตุผลหลัก เช่น "เหตุผล: ที่อยู่ใหม่ ไม่เคยถูกใช้งานที่ไหนเลย" |
+| `checks[]` | รายการ "สิ่งที่ตรวจแล้ว" ✓ ผ่าน · ⚠ พบ · – อ่านไม่ได้ |
 | `trust_score` | "Trust Score 95/100" เป็นดัชนีความรุนแรง **ไม่ใช่ความน่าจะเป็น** (สูตรอยู่ที่ `/v1/rules`) |
 | `signals[0].title.th` | ข้อความหลักบน popup เช่น "อยู่ในรายชื่อที่อยู่อันตราย" |
 | `signals[].detail.th` + `evidence_tx[]` | หน้า "Show more reason": เหตุผลทุกข้อ + ลิงก์ `{explorer}/tx/{hash}` |
@@ -104,7 +106,7 @@ const result = await guardedSend({
 ## 6. ทดสอบ
 ```bash
 python poc/backend/app.py                 # http://localhost:8080
-cd poc && python -m unittest discover -s backend/tests -t .     # 27 tests
+cd poc && python -m unittest discover -s backend/tests -t .     # 31 tests
 ```
 เหรียญ Fuji: https://build.avax.network/console/primary-network/faucet
 
@@ -112,7 +114,7 @@ cd poc && python -m unittest discover -s backend/tests -t .     # 27 tests
 |---|---|
 | `HIGH` | `0xa9fac309ea02c09f5eb7137bbaaca80032dcea5b` (อยู่ในรายชื่อ ScamSniffer จริง ห้ามโอนบน mainnet) |
 | `MEDIUM` | `0xd00ae08403B9bbb9124bB305C09058E32C39A48c` (contract ของ WAVAX) |
-| `UNKNOWN` | ที่อยู่ใหม่ |
+| `MEDIUM` ที่อยู่ใหม่ | ที่อยู่ที่ไม่เคยใช้บนเครือข่ายใดเลย (ตรวจ Fuji, C-Chain, Ethereum, nonce/ยอดเงิน) |
 | `HIGH` poisoning | ที่อยู่ที่ขึ้นต้นและลงท้าย 4 ตัวเหมือนที่อยู่ที่คุณเคยโอนไป |
 | QR | `ethereum:0x9f8c163cBA728e99993ABe7495F06c0A3c8Ac8b9@43113?value=1e16` |
 
