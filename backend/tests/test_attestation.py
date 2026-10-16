@@ -30,12 +30,6 @@ class Attestation(unittest.TestCase):
     def test_non_memo_input_is_ignored(self):
         self.assertIsNone(A.parse('0xa9059cbb' + '0' * 128)); self.assertIsNone(A.parse('0x')); self.assertIsNone(A.parse('0xzz'))
 
-    def test_trust_score_is_monotonic_with_severity(self):
-        low = A.trust_score('LOW', [], 10); med = A.trust_score('MEDIUM', [{'severity': 'medium'}], 10)
-        high = A.trust_score('HIGH', [{'severity': 'high'}], 10); unk = A.trust_score('UNKNOWN', [], 0)
-        self.assertTrue(high < med < unk < low)
-        self.assertEqual(A.trust_score('LOW', [], 2), 80)
-
 
 if __name__ == '__main__':
     unittest.main()

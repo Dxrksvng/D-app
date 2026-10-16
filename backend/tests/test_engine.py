@@ -22,8 +22,27 @@ class Rules(unittest.TestCase):
         r = self.run_([tx('0x' + 'b' * 40, A)])
         self.assertEqual(r['level'], 'LOW'); self.assertEqual(self.codes(r), ['THIN_HISTORY'])
 
-    def test_no_history_is_unknown_not_low(self):
-        r = self.run_([]); self.assertEqual(r['level'], 'UNKNOWN'); self.assertIn('NO_HISTORY', self.codes(r))
+    def test_unused_everywhere_is_medium_with_reason(self):
+        cross = [{'chain': 1, 'ok': True, 'txs': [], 'state': {'nonce': 0, 'balance_wei': 0}}]
+        r = E.assess(A, 43113, [], False, {'is_contract': False}, [], {}, 0, [], True, True, sender_cps=[], cross=cross,
+                     l1_chains=[], state={'nonce': 0, 'balance_wei': 0}, bl_stats={'lists': 5, 'addresses': 100})
+        self.assertEqual(r['level'], 'MEDIUM'); self.assertIn('FRESH_ADDRESS', self.codes(r))
+        self.assertIn('Ethereum', r['signals'][0]['detail']['th'])
+        self.assertTrue(r['verdict']['th'].startswith('เหตุผล'))
+
+    def test_unused_here_but_clean_elsewhere_is_low(self):
+        clean = [tx('0x' + 'b' * 40, A), tx(A, '0x' + 'c' * 40)] * 3
+        r = E.assess(A, 43113, [], False, {'is_contract': False}, [], {}, 0, cross=[{'chain': 43114, 'ok': True, 'txs': clean}], l1_chains=[])
+        self.assertEqual(r['level'], 'LOW'); self.assertIn('CROSS_CHAIN_ACTIVE', self.codes(r))
+
+    def test_drainer_on_another_chain_is_high(self):
+        drain = [tx(A, '0x' + 'd' * 40, 0, E.SEL_TRANSFER_FROM) for _ in range(3)]
+        r = E.assess(A, 43113, [], False, {'is_contract': False}, [], {}, 0, cross=[{'chain': 1, 'ok': True, 'txs': drain}])
+        self.assertEqual(r['level'], 'HIGH'); self.assertIn('Ethereum', r['signals'][0]['title']['th'])
+
+    def test_balance_or_nonce_means_not_fresh(self):
+        r = E.assess(A, 43113, [], False, {'is_contract': False}, [], {}, 0, state={'nonce': 3, 'balance_wei': 0}, l1_chains=[])
+        self.assertNotIn('FRESH_ADDRESS', self.codes(r)); self.assertEqual(r['level'], 'LOW')
 
     def test_l0_is_high_even_without_history(self):
         r = self.run_([], l0=[{'list': 'scamsniffer', 'label': 'ScamSniffer'}])
@@ -54,9 +73,51 @@ class Rules(unittest.TestCase):
         tok = self.run_([tx('0x' + 'b' * 40, A)], contract={'is_contract': True, 'erc_type': 'ERC-20', 'symbol': 'USDC'})
         self.assertEqual(tok['level'], 'MEDIUM'); self.assertIn('TOKEN_CONTRACT', self.codes(tok))
 
-    def test_failure_degrades_to_unknown_not_low(self):
+    def test_trust_score_follows_evidence_inside_the_level_band(self):
+        old, young = 1_500_000_000, 1_790_000_000
+        deep = [tx('0x' + 'b' * 40, A, ts=old)] * 50 + [tx(A, '0x' + 'c' * 40, ts=young)] * 50
+        shallow = [tx('0x' + 'b' * 40, A, ts=young)] * 5
+        s_deep = E.assess(A, 43113, deep, False, {'is_contract': False}, [], {}, 0, now=1_792_000_000)
+        s_thin = E.assess(A, 43113, shallow, False, {'is_contract': False}, [], {}, 0, now=1_792_000_000)
+        self.assertEqual((s_deep['level'], s_thin['level']), ('LOW', 'LOW'))
+        self.assertGreater(s_deep['trust_score'], s_thin['trust_score'])          # same level, different evidence
+        self.assertTrue(70 <= s_thin['trust_score'] < s_deep['trust_score'] <= 98)
+        dust = [tx('0x' + str(i) * 40, A, 0) for i in range(1, 9)]
+        m1 = E.assess(A, 43113, dust, False, {'is_contract': False}, [], {}, 0, now=1_792_000_000)
+        m2 = E.assess(A, 43113, dust[:1] + [tx('0x' + 'e' * 40, A, 1.0)] * 7, False, {'is_contract': False}, [], {}, 1, now=1_792_000_000)
+        self.assertEqual(m1['level'], 'MEDIUM'); self.assertTrue(30 <= m1['trust_score'] <= 69)
+        hi = E.assess(A, 43113, [], False, {'is_contract': False}, [{'list': 'a', 'label': 'A'}, {'list': 'b', 'label': 'B'}], {}, 0)
+        self.assertEqual(hi['level'], 'HIGH'); self.assertLessEqual(hi['trust_score'], 25)
+        self.assertGreater(70, 69); self.assertLess(m1['trust_score'], s_thin['trust_score'])
+        self.assertLess(hi['trust_score'], m1['trust_score'])
+
+    def test_burn_and_system_addresses_are_high(self):
+        for burn in ('0x' + '0' * 40, '0x000000000000000000000000000000000000dEaD', '0x' + '0' * 39 + '1'):
+            r = E.assess(burn, 43113, [], False, {'is_contract': False}, [], {}, 0)
+            self.assertEqual(r['level'], 'HIGH'); self.assertEqual(r['signals'][0]['code'], 'BURN_ADDRESS')
+        self.assertFalse(E.is_burn('0x' + '0' * 30 + '1' + '0' * 9))
+
+    def test_contract_is_not_flagged_for_dusting_or_links(self):
+        zero = [tx('0x' + str(i) * 40, A, 0) for i in range(1, 7)]
+        r = E.assess(A, 43113, zero, False, {'is_contract': True, 'erc_type': 'ERC-20', 'symbol': 'WAVAX'}, [], {'0x' + '1' * 40: ['x']}, 0)
+        self.assertEqual([s['code'] for s in r['signals'] if s['severity'] != 'info'], ['TOKEN_CONTRACT'])
+
+    def test_self_transfer_is_explained(self):
+        r = E.assess(A, 43113, [tx('0x' + 'b' * 40, A)] * 6, False, {'is_contract': False}, [], {}, 0, [], sender=A)
+        self.assertEqual(r['level'], 'LOW'); self.assertIn('SELF_TRANSFER', self.codes(r)); self.assertNotIn('FIRST_TIME_RECIPIENT', self.codes(r))
+
+    def test_failure_is_caution_not_low(self):
         r = self.run_([], history_ok=False)
-        self.assertEqual(r['level'], 'UNKNOWN'); self.assertIn('CHECK_INCOMPLETE', self.codes(r))
+        self.assertEqual(r['level'], 'MEDIUM'); self.assertIn('UNVERIFIABLE', self.codes(r))
+
+    def test_every_result_has_level_verdict_and_checks(self):
+        cases = [self.run_([]), self.run_([], history_ok=False), self.run_([tx('0x' + 'b' * 40, A)] * 6),
+                 self.run_([], l0=[{'list': 'x', 'label': 'X'}])]
+        for r in cases:
+            self.assertIn(r['level'], ('LOW', 'MEDIUM', 'HIGH'))
+            self.assertTrue(r['verdict']['th'] and r['verdict']['en'])
+            self.assertGreaterEqual(len(r['checks']), 6)
+            for c in r['checks']: self.assertIn(c['result'], ('pass', 'flag', 'skip'))
 
     def test_removed_rules_do_not_fire(self):
         # Collector pattern (R1 in v1) produced 18% false warnings in E5 and must not raise the level any more.

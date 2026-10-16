@@ -14,10 +14,9 @@ let wallet;
 const HEAD = {
   HIGH: ['CRITICAL SECURITY ALERT', 'ความเสี่ยงสูง แนะนำให้ไม่โอน'],
   MEDIUM: ['SECURITY WARNING', 'พบสัญญาณที่ควรระวัง'],
-  LOW: ['NO RISK SIGNALS FOUND', 'ไม่พบสัญญาณความเสี่ยงที่ผ่านการพิสูจน์'],
-  UNKNOWN: ['NOT ENOUGH DATA', 'ข้อมูลไม่พอสำหรับประเมิน (ไม่ได้แปลว่าปลอดภัย)'],
+  LOW: ['LOW RISK', 'ไม่พบสัญญาณความเสี่ยงจากการตรวจ'],
 };
-const LV = { LOW: 'Low risk', MEDIUM: 'Caution', HIGH: 'High risk', UNKNOWN: 'No data' };
+const LV = { LOW: 'Low risk', MEDIUM: 'Caution', HIGH: 'High risk', UNKNOWN: 'No data' };   // UNKNOWN only for seals written by engine < v2.1
 
 const chain = () => S.chains.find((c) => c.chain_id === S.chainId) || { name: 'Avalanche Fuji C-Chain', short: 'Fuji', symbol: 'AVAX', rpc: 'https://api.avax-test.network/ext/bc/C/rpc', explorer: 'https://testnet.snowtrace.io' };
 function toast(m, ms = 3200) { const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), ms); }
@@ -228,7 +227,7 @@ async function openReview() {
     $('rvFee').textContent = fee < 10n ** 12n ? `< 0.000001 ${chain().symbol}` : `≈ ${fmt(fee, 9)}`;
   }).catch(() => ($('rvFee').textContent = '–'));
   try { S.risk = await api.checkRisk({ chainId: S.chainId, to: S.to, from: wallet.account || undefined, valueWei: wallet.account ? S.wei : undefined }); }
-  catch (e) { S.risk = { level: 'UNKNOWN', error: true, signals: [], message: e.body?.message?.th }; }
+  catch (e) { S.risk = { level: 'MEDIUM', error: true, signals: [], message: e.body?.message?.th }; }
   renderAnalysis(S.risk);
 }
 
@@ -242,12 +241,12 @@ function renderAnalysis(r) {
   const an = $('analysis'); an.classList.remove('loading'); an.dataset.level = r.level;
   const body = $('anBody'); body.replaceChildren();
   if (r.error) {
-    body.append(el('p', { class: 'an-level', text: 'CHECK UNAVAILABLE' }), el('p', { class: 'an-lead', text: r.message || 'ตรวจไม่สำเร็จในขณะนี้ คุณยังโอนต่อได้ แต่ควรตรวจที่อยู่ด้วยตัวเอง' }));
+    body.append(el('p', { class: 'an-level', text: 'SECURITY WARNING' }), el('h3', { class: 'an-title', text: 'ระวัง: ยังตรวจที่อยู่นี้ไม่สำเร็จ' }),
+      el('p', { class: 'an-lead', text: `เหตุผล: เชื่อมต่อระบบวิเคราะห์ไม่ได้ (${r.message || 'เครือข่ายขัดข้อง'}) จึงยืนยันไม่ได้ว่าปลอดภัย ลองกด Cancel แล้วตรวจใหม่ หรือยืนยันที่อยู่กับผู้รับผ่านช่องทางอื่นก่อนโอน` }));
   } else {
-    const [head, line] = HEAD[r.level] || HEAD.UNKNOWN;
-    const main = r.signals.find((s) => s.severity !== 'info') || r.signals[0];
+    const [head, line] = HEAD[r.level] || HEAD.MEDIUM;
     body.append(el('p', { class: 'an-level', text: head }), el('h3', { class: 'an-title', text: line }),
-      el('p', { class: 'an-lead', text: main ? `${main.title.th}: ${main.detail.th}` : 'ไม่อยู่ในรายชื่ออันตราย และไม่พบพฤติกรรมของมิจฉาชีพที่ผ่านการพิสูจน์' }),
+      el('p', { class: 'an-lead', text: r.verdict?.th || '' }),
       el('div', { class: 'score' }, el('span', { text: 'Trust Score' }), el('b', { text: `${r.trust_score}/100` })));
     const ol = el('ul', { class: 'reasons' });
     [...r.signals.filter((s) => s.severity !== 'info'), ...r.signals.filter((s) => s.severity === 'info')].forEach((s) => {
@@ -256,11 +255,14 @@ function renderAnalysis(r) {
       if (s.evidence_tx?.[0] && r.explorer) li.append(el('a', { href: `${r.explorer}/tx/${s.evidence_tx[0]}`, target: '_blank', rel: 'noopener', text: 'ดูธุรกรรมที่เป็นหลักฐาน' }));
       ol.append(li);
     });
-    if (!r.signals.length) ol.append(el('li', {}, el('b', { text: 'ไม่พบสัญญาณใด ๆ' }), el('p', { text: 'ตรวจรายชื่ออันตราย 5 แหล่ง, พฤติกรรม drainer, ความเชื่อมโยงกับที่อยู่อันตราย และ address poisoning แล้ว' })));
+    // Every check that ran, so each verdict shows its work: ✓ passed, ⚠ found something, – could not be checked.
+    const ck = el('ul', { class: 'checks' });
+    (r.checks || []).forEach((c) => ck.append(el('li', { class: c.result }, el('span', { class: 'ck-ic', text: { pass: '✓', flag: '⚠', skip: '–' }[c.result] }), el('span', { text: c.th }))));
+    const ckBox = el('div', { class: 'checks-box' }, el('b', { text: `สิ่งที่ตรวจแล้ว (${(r.checks || []).length} ข้อ)` }), ck);
     const dl = el('dl', { class: 'an-meta' });
-    [['ปลายทาง', S.to], ['จำนวน', fmt(S.wei, 8)], ['ประวัติที่วิเคราะห์', `${r.stats?.n_total ?? 0} ธุรกรรม`], ['แหล่งข้อมูล', (r.data_sources || []).join(', ')], ['เวลาวิเคราะห์', `${r.latency_ms} ms`], ['รหัสอ้างอิง', r.request_id]]
+    [['ปลายทาง', S.to], ['จำนวน', fmt(S.wei, 8)], ['ประวัติที่วิเคราะห์', `${r.stats?.n_all_chains ?? r.stats?.n_total ?? 0} ธุรกรรม (ทุกเครือข่าย)`], ['แหล่งข้อมูล', (r.data_sources || []).join(', ')], ['เวลาวิเคราะห์', `${r.latency_ms} ms`], ['รหัสอ้างอิง', r.request_id]]
       .forEach(([k, v]) => dl.append(el('dt', { text: k }), el('dd', { text: String(v) })));
-    body.append(ol, dl, el('p', { class: 'an-foot', text: 'BridgeSecure เตือน ไม่บล็อก การตัดสินใจเป็นของคุณ' }));
+    body.append(ol, ckBox, dl, el('p', { class: 'an-foot', text: 'BridgeSecure เตือน ไม่บล็อก การตัดสินใจเป็นของคุณ' }));
     if (r.level === 'HIGH') { $('rvTo').className = 'mono to-risk'; $('rvTo').textContent = `⚠ ${shortAddress(S.to)}`; }
   }
   const high = r.level === 'HIGH';
@@ -463,7 +465,7 @@ $('importNft').onclick = () => {
       const owner = await rpc('eth_call', [{ to: c, data: '0x6352211e' + BigInt(t).toString(16).padStart(64, '0') }, 'latest']);
       if (!owner || owner.length < 66 || ('0x' + owner.slice(-40)).toLowerCase() !== wallet.account) throw new Error('not owner');
       const name = decodeString(await rpc('eth_call', [{ to: c, data: '0x06fdde03' }, 'latest']).catch(() => '0x'));
-      let level = 'UNKNOWN'; try { level = (await api.checkRisk({ chainId: S.chainId, to: c })).level; } catch {}
+      let level = 'MEDIUM'; try { level = (await api.checkRisk({ chainId: S.chainId, to: c })).level; } catch {}
       const list = loadNfts().filter((n) => !(n.contract === c.toLowerCase() && n.tokenId === t));
       list.push({ contract: c.toLowerCase(), tokenId: t, name, level }); saveNfts(list); renderNfts(); $('sheet').close();
       toast(level === 'HIGH' ? 'นำเข้าแล้ว ⚠ BridgeSecure พบว่า contract นี้มีความเสี่ยงสูง ระวัง NFT หลอกลวง' : 'นำเข้า NFT แล้ว');

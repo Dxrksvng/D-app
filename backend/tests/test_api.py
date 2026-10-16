@@ -13,6 +13,10 @@ class StubChain:
         if addr == DOWN: raise UpstreamError('down')
         return ([{'ts': 1, 'block': 1, 'hash': '0x' + '1' * 64, 'frm': '0x' + '8' * 40, 'to': addr, 'value': 1.0, 'ok': True, 'selector': '0x'}], False, 'stub')
     def contract_info(self, chain, addr): return {'is_contract': False}, 'stub'
+    def account_state(self, chain, addr):
+        if addr == DOWN: raise UpstreamError('down')
+        return {'nonce': 1, 'balance_wei': 0}
+    def active_chains(self, addr): return []
     def status(self): return {'stub': 'ok'}
     txs = {}
     def get_tx(self, chain, h): return self.txs.get(h)
@@ -25,7 +29,7 @@ class StubLists:
     def any_listed(self, addrs): return {}
     def reported(self, a): return self.reports.get(a, 0)
     def add_report(self, a, c, cat): self.reports[a] = self.reports.get(a, 0) + 1; return self.reports[a]
-    def status(self): return {}
+    def status(self): return {'feeds': {'scamsniffer': {}}, 'unique_addresses': 1}
 
 
 class API(unittest.TestCase):
@@ -59,7 +63,8 @@ class API(unittest.TestCase):
         s, b, h = self.get(f'/v1/risk?chain_id=43113&to={SCAM}'); self.assertEqual((s, b['level']), (200, 'HIGH'))
         self.assertEqual(h['Cache-Control'], 'no-store'); self.assertEqual(h['Access-Control-Allow-Origin'], '*')
         s, b, _ = self.get(f'/v1/risk?chain_id=43113&to={CLEAN}'); self.assertEqual(b['level'], 'LOW')
-        s, b, _ = self.get(f'/v1/risk?chain_id=43113&to={DOWN}'); self.assertEqual(b['level'], 'UNKNOWN')
+        s, b, _ = self.get(f'/v1/risk?chain_id=43113&to={DOWN}'); self.assertEqual(b['level'], 'MEDIUM')
+        self.assertIn('UNVERIFIABLE', [x['code'] for x in b['signals']]); self.assertTrue(b['verdict']['th'] and b['checks'])
 
     def test_checksum_case_is_accepted(self):
         s, b, _ = self.get('/v1/risk?chain_id=43113&to=' + SCAM.upper().replace('0X', '0x')); self.assertEqual(b['level'], 'HIGH')

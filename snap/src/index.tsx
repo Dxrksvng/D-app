@@ -19,18 +19,20 @@ const APPROVE = '0x095ea7b3';  // ERC-20 approve(address,uint256)
 const HEAD: Record<string, { title: string; severity: 'danger' | 'warning' | 'success' | 'info'; line: string }> = {
   HIGH: { title: 'CRITICAL SECURITY ALERT', severity: 'danger', line: 'ความเสี่ยงสูง แนะนำให้ไม่โอน' },
   MEDIUM: { title: 'SECURITY WARNING', severity: 'warning', line: 'พบสัญญาณที่ควรระวัง' },
-  LOW: { title: 'NO RISK SIGNALS FOUND', severity: 'success', line: 'ไม่พบสัญญาณความเสี่ยงที่ผ่านการพิสูจน์' },
-  UNKNOWN: { title: 'NOT ENOUGH DATA', severity: 'info', line: 'ข้อมูลไม่พอสำหรับประเมิน (ไม่ได้แปลว่าปลอดภัย)' },
+  LOW: { title: 'LOW RISK', severity: 'success', line: 'ไม่พบสัญญาณความเสี่ยงจากการตรวจ' },
 };
 
 type Signal = {
   code: string; severity: 'high' | 'medium' | 'info'; title: { th: string }; detail: { th: string };
   evidence_tx?: string[]; validation?: { status?: string; avalanche?: { recall: number; fpr: number }; ethereum?: { recall: number; fpr: number } };
 };
+type Check = { id: string; result: 'pass' | 'flag' | 'skip'; th: string };
 type Risk = {
   level: string; trust_score: number; signals: Signal[]; explorer: string; request_id: string;
-  stats?: { n_total?: number }; data_sources?: string[]; latency_ms?: number;
+  verdict?: { th: string }; checks?: Check[];
+  stats?: { n_total?: number; n_all_chains?: number }; data_sources?: string[]; latency_ms?: number;
 };
+const CHECK_ICON: Record<Check['result'], string> = { pass: '✓', flag: '⚠', skip: '–' };
 type Kind = 'native' | 'token-transfer' | 'approve' | 'contract-call';
 
 /** Who actually receives value: native `to`, ERC-20 transfer recipient, or approve spender. */
@@ -76,9 +78,8 @@ const KIND_LABEL: Record<Kind, string> = {
 };
 
 export function Insight({ risk, cp, chainId, value }: { risk: Risk; cp: { address: string; kind: Kind }; chainId: number; value?: string }) {
-  const head = HEAD[risk.level] ?? HEAD.UNKNOWN;
-  const main = risk.signals.find((s) => s.severity !== 'info') ?? risk.signals[0];
-  const lead = main ? `${main.title.th}: ${main.detail.th}` : 'ไม่อยู่ในรายชื่ออันตราย และไม่พบพฤติกรรมของมิจฉาชีพที่ผ่านการพิสูจน์';
+  const head = HEAD[risk.level] ?? HEAD.MEDIUM;
+  const lead = risk.verdict?.th ?? '';
   const ordered = [...risk.signals.filter((s) => s.severity !== 'info'), ...risk.signals.filter((s) => s.severity === 'info')];
   return (
     <Box>
@@ -96,9 +97,6 @@ export function Insight({ risk, cp, chainId, value }: { risk: Risk; cp: { addres
         ? <Text><Bold>คุณกำลังให้สิทธิ์ที่อยู่นี้ดึงโทเคนออกจากกระเป๋าของคุณ</Bold> ซึ่งเป็นวิธีหลักที่ wallet drainer ใช้</Text>
         : null}
       <Text><Bold>เหตุผลการวิเคราะห์</Bold></Text>
-      {ordered.length === 0
-        ? <Section><Text>ตรวจรายชื่ออันตราย 5 แหล่ง, พฤติกรรม drainer, ความเชื่อมโยงกับที่อยู่อันตราย และ address poisoning แล้ว ไม่พบสัญญาณ</Text></Section>
-        : null}
       {ordered.map((s) => (
         <Section>
           <Text><Bold>{s.title.th}</Bold></Text>
@@ -108,10 +106,16 @@ export function Insight({ risk, cp, chainId, value }: { risk: Risk; cp: { addres
             ? <Link href={`${risk.explorer}/tx/${s.evidence_tx[0]}`}>ดูธุรกรรมที่เป็นหลักฐาน</Link> : null}
         </Section>
       ))}
+      <Text><Bold>{`สิ่งที่ตรวจแล้ว (${(risk.checks ?? []).length} ข้อ)`}</Bold></Text>
+      <Section>
+        {(risk.checks ?? []).map((c) => (
+          <Text color={c.result === 'skip' ? 'muted' : 'default'}>{`${CHECK_ICON[c.result]} ${c.th}`}</Text>
+        ))}
+      </Section>
       <Section>
         <Row label={KIND_LABEL[cp.kind]}><Address address={cp.address as `0x${string}`} /></Row>
         {cp.kind === 'native' ? <Row label="จำนวน"><Text>{formatValue(value, chainId)}</Text></Row> : null}
-        <Row label="ประวัติที่วิเคราะห์"><Text>{`${risk.stats?.n_total ?? 0} ธุรกรรม`}</Text></Row>
+        <Row label="ประวัติที่วิเคราะห์"><Text>{`${risk.stats?.n_all_chains ?? risk.stats?.n_total ?? 0} ธุรกรรม (ทุกเครือข่าย)`}</Text></Row>
         <Row label="แหล่งข้อมูล"><Text>{(risk.data_sources ?? []).join(', ') || '-'}</Text></Row>
         <Row label="เวลาวิเคราะห์"><Text>{`${risk.latency_ms ?? 0} ms`}</Text></Row>
         <Row label="รหัสอ้างอิง"><Text>{risk.request_id}</Text></Row>
@@ -135,7 +139,10 @@ export const onTransaction: OnTransactionHandler = async ({ transaction, chainId
     return { content: (
       <Box>
         <Image src={LOGO_SVG} alt="BridgeSecure" width={160} />
-        <Banner title="CHECK UNAVAILABLE" severity="info"><Text>ตรวจไม่สำเร็จในขณะนี้ คุณยังดำเนินการต่อได้ แต่ควรตรวจที่อยู่ปลายทางด้วยตัวเอง</Text></Banner>
+        <Banner title="SECURITY WARNING" severity="warning">
+          <Text><Bold>ระวัง: ยังตรวจที่อยู่นี้ไม่สำเร็จ</Bold></Text>
+          <Text>เหตุผล: เชื่อมต่อระบบวิเคราะห์ BridgeSecure ไม่ได้ จึงยืนยันไม่ได้ว่าปลายทางปลอดภัย ยืนยันที่อยู่กับผู้รับผ่านช่องทางอื่นก่อนดำเนินการต่อ</Text>
+        </Banner>
       </Box>
     ) };
   }

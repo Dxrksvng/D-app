@@ -39,10 +39,13 @@ describe('BridgeSecure Guardian onTransaction', () => {
     expect(text).toContain('รหัสอ้างอิง');
     expect(text).toContain('"type":"Image"');  });
 
-  it('does not raise a critical alert for a fresh address, and says data is limited', async () => {
+  it('analyses a fresh address with reasons and a checklist, without a critical alert', async () => {
     const { text, severity } = await insight({ to: FRESH, value: '0x38d7ea4c68000' });
     expect(severity).toBeUndefined();
-    expect(text).toContain('ข้อมูลไม่พอสำหรับประเมิน');
+    expect(text).toContain('SECURITY WARNING');
+    expect(text).toContain('ที่อยู่ใหม่ ไม่เคยถูกใช้งานที่ไหนเลย');
+    expect(text).toContain('สิ่งที่ตรวจแล้ว');
+    expect(text).not.toContain('ข้อมูลไม่พอ');
   });
 
   it('checks the spender of an ERC-20 approve (drainer entry point)', async () => {

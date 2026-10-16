@@ -32,7 +32,7 @@ DATA_DIR = os.environ.get('DATA_DIR', os.path.join(ROOT, 'data'))
 WEB_DIR = os.environ.get('WEB_DIR', os.path.join(ROOT, 'web'))
 HOME_PAGE = os.environ.get('HOME_PAGE', 'index.html')  # page served at "/" (cloud pilot: wallet.html)
 WALLETCONNECT_PROJECT_ID = os.environ.get('WALLETCONNECT_PROJECT_ID', '')  # optional, enables WalletConnect in the reference UI
-ENGINE_VERSION = 'v2.0.0'
+ENGINE_VERSION = 'v2.1.0'
 
 # Chains the API accepts. 'dataapi' = indexed by the Avalanche Data API; 'routescan' = network segment for Routescan.
 CHAINS = {

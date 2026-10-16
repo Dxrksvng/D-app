@@ -74,7 +74,7 @@ export class RiskGuardClient {
     } finally { clearTimeout(t); }
   }
 
-  /** @returns {Promise<RiskResult>} level: LOW | MEDIUM | HIGH | UNKNOWN */
+  /** @returns {Promise<RiskResult>} level: LOW | MEDIUM | HIGH, plus verdict (why) and checks (what was checked) */
   /** Pass `from` + `valueWei` to receive `attestation.data_hex`, the signed verdict to embed in the transfer. */
   checkRisk({ chainId, to, from, valueWei }) {
     const q = new URLSearchParams({ chain_id: String(chainId), to });
@@ -107,7 +107,8 @@ export async function guardedSend({ api, wallet, chainId, to, valueWei, decide, 
   onStage('checking');
   let risk;
   try { risk = await api.checkRisk({ chainId, to, from: wallet.account, valueWei }); }
-  catch (e) { risk = { level: 'UNKNOWN', error: true, signals: [], message: e.body?.message }; }
+  catch (e) { risk = { level: 'MEDIUM', error: true, signals: [], message: e.body?.message,
+    verdict: { th: 'เหตุผล: เชื่อมต่อระบบวิเคราะห์ไม่ได้ จึงยืนยันไม่ได้ว่าปลอดภัย', en: 'Because: the risk service could not be reached' } }; }
   onStage('deciding', risk);
   if (!(await decide(risk))) return { status: 'cancelled', risk };
   onStage('switching');

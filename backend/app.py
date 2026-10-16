@@ -197,10 +197,12 @@ class Handler(BaseHTTPRequestHandler):
                 from backend.engine_v2 import VALIDATION
                 return self._json(200, {'engine_version': config.ENGINE_VERSION, 'rules': VALIDATION,
                                         'audit': 'Pre-registered E5 replay on 894 real 2024-2026 transfers; see audit/report',
-                                        'trust_score': {'meaning': 'severity index 0-100, higher = fewer risk signals; NOT a probability',
-                                                        'formula': {'HIGH': '20 - 5*(extra high signals) - 2*(medium signals), min 0',
-                                                                    'MEDIUM': '45 - 5*(extra medium signals), min 25', 'UNKNOWN': '50',
-                                                                    'LOW': '95 with >=5 past transactions, otherwise 80'}},
+                                        'trust_score': {'meaning': "severity index 0-100 computed from the address's own evidence; higher = fewer risk signals; NOT a probability and NOT a constant per level",
+                                                        'evidence': 'age_days, n_all (tx across chains), chains_active, zero_share; returned in `evidence`',
+                                                        'formula': {'HIGH': '25 - 5*(extra high) - 2*(medium) - 3*(extra lists) + 0.1*pos, band 0-25',
+                                                                    'MEDIUM': '60 - 7*(medium signals) - 10*zero_share + 0.3*pos, band 30-69',
+                                                                    'LOW': '70 + pos, max 98',
+                                                                    'pos': '12*age(<=730d) + 12*log10(1+tx)/3 + 2*(extra active chains), 0-28 points'}},
                                         'attestation': {'where': 'transaction input data (UTF-8 visible on explorers)',
                                                         'format': 'BRIDGESECURE|v1|c=<chain>|l=<level>|ts=<score>|s=<signals>|t=<unix>|r=<request_id>|k=<hmac>',
                                                         'binding': 'HMAC covers chain, from, to and value, so a copied memo fails verification',
@@ -251,7 +253,7 @@ class Handler(BaseHTTPRequestHandler):
             log.exception('unhandled'); return self._err(500, 'internal', 'เกิดข้อผิดพลาดภายใน', 'Internal error')
 
     def _risk(self, q):
-        to, frm = q.get('to', ''), q.get('from')
+        to, frm = q.get('to', '').strip(), (q.get('from') or '').strip() or None
         try:
             chain = int(q.get('chain_id', q.get('chain', '43113')))
         except ValueError:

@@ -23,15 +23,6 @@ if not _SECRET:  # dev fallback: stable per data dir so restarts keep verifying 
         with open(p, 'w') as f: f.write(os.urandom(32).hex())
     _SECRET = open(p).read().strip().encode()
 
-# Trust score: a transparent severity index (NOT a probability). Documented in /v1/rules.
-def trust_score(level, signals, n_total):
-    highs = sum(1 for s in signals if s['severity'] == 'high'); meds = sum(1 for s in signals if s['severity'] == 'medium')
-    if level == 'HIGH': return max(0, 20 - 5 * (highs - 1) - 2 * meds)
-    if level == 'MEDIUM': return max(25, 45 - 5 * (meds - 1))   # evidence of risk ranks below "no data" (50)
-    if level == 'UNKNOWN': return 50
-    return 95 if n_total >= 5 else 80   # LOW; thin history caps the score
-
-
 def _mac(fields, chain, frm, to, value_wei):
     msg = '|'.join([fields, str(chain), (frm or '').lower(), to.lower(), str(int(value_wei))]).encode()
     return hmac.new(_SECRET, msg, hashlib.sha256).hexdigest()[:16]

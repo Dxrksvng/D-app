@@ -13,10 +13,9 @@ let wallet;
 const HEAD = {
   HIGH: ['CRITICAL SECURITY ALERT', 'ความเสี่ยงสูง แนะนำให้ไม่โอน'],
   MEDIUM: ['SECURITY WARNING', 'พบสัญญาณที่ควรระวัง'],
-  LOW: ['NO RISK SIGNALS FOUND', 'ไม่พบสัญญาณความเสี่ยงที่ผ่านการพิสูจน์'],
-  UNKNOWN: ['NOT ENOUGH DATA', 'ข้อมูลไม่พอสำหรับประเมิน (ไม่ได้แปลว่าปลอดภัย)'],
+  LOW: ['LOW RISK', 'ไม่พบสัญญาณความเสี่ยงจากการตรวจ'],
 };
-const LV_TH = { LOW: 'ความเสี่ยงต่ำ', MEDIUM: 'ความเสี่ยงปานกลาง', HIGH: 'ความเสี่ยงสูง', UNKNOWN: 'ข้อมูลไม่พอ' };
+const LV_TH = { LOW: 'ความเสี่ยงต่ำ', MEDIUM: 'ความเสี่ยงปานกลาง', HIGH: 'ความเสี่ยงสูง', UNKNOWN: 'ข้อมูลไม่พอ' };   // UNKNOWN: seals from engine < v2.1 only
 
 function toast(msg, ms = 3400) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), ms); }
 const chain = (id = state.chainId) => state.chains.find((c) => c.chain_id === id) || { symbol: 'AVAX', explorer: '', name: '' };
@@ -121,12 +120,12 @@ function applyPaymentText(text) {
 // ------------------------------------------------------------ alert sheet (the "decide" step)
 function showAlert(risk, { to, valueWei }) {
   return new Promise((resolve) => {
-    const s = $('alertSheet'); s.dataset.level = risk.level;
-    const [head, sub] = HEAD[risk.level] || HEAD.UNKNOWN;
-    $('alertLevel').textContent = risk.error ? 'CHECK FAILED' : head;
-    const top = (risk.signals || []).find((g) => g.severity !== 'info') || (risk.signals || [])[0];
-    $('alertTitle').textContent = risk.error ? 'ตรวจไม่สำเร็จในขณะนี้' : sub;
-    $('alertLead').textContent = risk.error ? 'คุณยังโอนต่อได้ แต่ควรตรวจที่อยู่ด้วยตัวเอง' : top ? `${top.title.th}: ${top.detail.th}` : 'ไม่อยู่ในรายชื่ออันตราย และไม่พบพฤติกรรมของมิจฉาชีพที่ผ่านการพิสูจน์';
+    const level = risk.error ? 'MEDIUM' : risk.level;
+    const s = $('alertSheet'); s.dataset.level = level;
+    const [head, sub] = HEAD[level] || HEAD.MEDIUM;
+    $('alertLevel').textContent = head;
+    $('alertTitle').textContent = risk.error ? 'ระวัง: ยังตรวจที่อยู่นี้ไม่สำเร็จ' : sub;
+    $('alertLead').textContent = risk.error ? 'เหตุผล: เชื่อมต่อระบบวิเคราะห์ไม่ได้ จึงยืนยันไม่ได้ว่าปลอดภัย ยืนยันที่อยู่กับผู้รับผ่านช่องทางอื่นก่อนโอน' : (risk.verdict?.th || '');
     $('alertScore').textContent = risk.trust_score != null ? `${risk.trust_score}/100` : '–';
     const ol = $('reasonList'); ol.replaceChildren();
     (risk.signals || []).forEach((g) => {
@@ -135,9 +134,11 @@ function showAlert(risk, { to, valueWei }) {
       const vt = validationText(g.validation); if (vt) li.append(el('span', { class: 'val', text: vt }));
       ol.append(li);
     });
-    if (!risk.signals?.length) ol.append(el('li', { class: 'sig info' }, el('b', { text: 'ไม่พบสัญญาณใด ๆ' }), el('p', { text: 'ตรวจรายชื่ออันตราย 5 แหล่ง, พฤติกรรม drainer, ความเชื่อมโยงกับที่อยู่อันตราย และ address poisoning แล้ว' })));
+    // The checklist: every check that ran and what it found, so each verdict shows its work.
+    if (risk.checks?.length) ol.append(el('li', { class: 'sig info' }, el('b', { text: `สิ่งที่ตรวจแล้ว (${risk.checks.length} ข้อ)` }),
+      ...risk.checks.map((c) => el('p', { text: `${{ pass: '✓', flag: '⚠', skip: '–' }[c.result]} ${c.th}` }))));
     const dl = $('alertMeta'); dl.replaceChildren();
-    const meta = risk.error ? [] : [['ปลายทาง', to], ['จำนวน', `${units.format(valueWei)} ${chain().symbol}`], ['ประวัติที่วิเคราะห์', `${risk.stats?.n_total ?? 0} ธุรกรรม`], ['แหล่งข้อมูล', (risk.data_sources || []).join(', ')], ['เวลาวิเคราะห์', `${risk.latency_ms} ms`], ['รหัสอ้างอิง', risk.request_id]];
+    const meta = risk.error ? [] : [['ปลายทาง', to], ['จำนวน', `${units.format(valueWei)} ${chain().symbol}`], ['ประวัติที่วิเคราะห์', `${risk.stats?.n_all_chains ?? risk.stats?.n_total ?? 0} ธุรกรรม (ทุกเครือข่าย)`], ['แหล่งข้อมูล', (risk.data_sources || []).join(', ')], ['เวลาวิเคราะห์', `${risk.latency_ms} ms`], ['รหัสอ้างอิง', risk.request_id]];
     if (risk.attestation) meta.push(['ตราบนธุรกรรม', 'MetaMask จะแสดงว่ามี "Data" แนบไป นั่นคือตรา Verified by BridgeSecure']);
     meta.forEach(([k, v]) => dl.append(el('dt', { text: k }), el('dd', { text: String(v) })));
     $('reasons').open = risk.level === 'HIGH';

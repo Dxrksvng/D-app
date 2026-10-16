@@ -312,3 +312,36 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 .logo svg{width:100%;height:100%;display:block}
 .tok-badge.logo{border-radius:50%}
 .net-ic.xs2.logo{border-radius:50%}
+
+/* Typography matched to the reference wallet: Geist, medium (500) weight for names, prices and % across every screen */
+:root{--f:"Geist","IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif}
+body{font-feature-settings:"tnum" 0}
+.acct{font-weight:600}
+.balance h1{font-weight:600;letter-spacing:-.02em}
+.act,.nav-item,.pill-btn,.unit-btn{font-weight:500}
+.tab{font-weight:500}
+.tab.on{font-weight:600}
+.tok-main b,.tok-right b,.tok-bal,.asset-list .a-main b,.asset-list .a-right b,.send-token b{font-weight:500}
+.mk-main b,.mk-right b{font-weight:500;font-size:16px}
+.mk-right span{font-weight:500}
+.mk-main span,.tok-main span,.tok-right span,.asset-list .a-main span,.asset-list .a-right span{font-weight:400}
+.ex-sec-head h3{font-weight:600}
+.site-main b,.screen-head h2,.sheet-body h3,.result h2,.an-title{font-weight:600}
+.empty-state p{font-weight:400}
+:root[data-theme="dark"]{--up:#BAF24A}
+:root[data-theme="dark"] .mk-right .up,:root[data-theme="dark"] .change .up,:root[data-theme="dark"] .flash-up b{color:var(--up)}
+.mk-main b{font-size:18px;line-height:26px}
+.mk-main span{font-size:14px;line-height:22px}
+.mk-right b{font-size:16px;line-height:24px}
+.mk-right span{font-size:14px;line-height:22px}
+.tok-main b,.tok-right b,.asset-list .a-main b,.asset-list .a-right b{font-size:16px;line-height:24px}
+.tok-main span,.tok-right span,.asset-list .a-main span,.asset-list .a-right span{font-size:14px;line-height:22px}
+
+/* Checklist under every analysis: what was checked and what it found */
+.checks-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px}
+.checks-box>b{font-size:14px;font-weight:600}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.checks li{display:grid;grid-template-columns:18px 1fr;gap:8px;font-size:13px;line-height:1.45;color:var(--ink);overflow-wrap:anywhere}
+.ck-ic{font-weight:700;text-align:center}
+.checks li.pass .ck-ic{color:var(--low)} .checks li.flag .ck-ic{color:var(--high)} .checks li.flag{font-weight:500}
+.checks li.skip{color:var(--muted)} .checks li.skip .ck-ic{color:var(--muted)}

@@ -6,7 +6,15 @@ from . import config, engine_v2, attestation
 from .sources import OnChain, UpstreamError
 from .blocklists import Blocklists
 
-POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix='upstream')
+POOL = ThreadPoolExecutor(max_workers=24, thread_name_prefix='upstream')
+
+
+def _quiet(fut, timeout):
+    """Result of an optional lookup, or None when that source failed (the checklist then shows it as not checked)."""
+    try:
+        return fut.result(timeout=timeout)
+    except Exception:
+        return None
 
 
 class TTLCache:
@@ -61,32 +69,50 @@ class RiskService:
         key = (chain, to, frm or '')
         hit = self.cache.get(key)
         if hit: return {**hit, 'cached': True}
-        t0 = time.time()
+        t0 = time.time(); wait = config.UPSTREAM_TIMEOUT_S * 2
+        others = [c for c in config.CHAINS if c != chain]   # the same address on every other supported chain
         f_hist = POOL.submit(self.onchain.history, chain, to)
         f_contract = POOL.submit(self.onchain.contract_info, chain, to)
+        f_state = POOL.submit(lambda: self.onchain.account_state(chain, to))
         f_sender = POOL.submit(self.onchain.history, chain, frm) if frm else None
+        f_cross = {c: (POOL.submit(self.onchain.history, c, to), POOL.submit(lambda c=c: self.onchain.account_state(c, to))) for c in others}
+        f_l1 = POOL.submit(lambda: self.onchain.active_chains(to))
         sources, history_ok, contract_ok = set(), True, True
         try:
-            txs, capped, src = f_hist.result(timeout=config.UPSTREAM_TIMEOUT_S * 2); sources.add(src)
-        except (UpstreamError, Exception):
+            txs, capped, src = f_hist.result(timeout=wait); sources.add(src)
+        except Exception:
             txs, capped, history_ok = [], False, False
         try:
-            contract, src = f_contract.result(timeout=config.UPSTREAM_TIMEOUT_S * 2); sources.add(src)
-        except (UpstreamError, Exception):
+            contract, src = f_contract.result(timeout=wait); sources.add(src)
+        except Exception:
             contract, contract_ok = {'is_contract': False}, False
-        recipients = None
+        state = _quiet(f_state, wait)
+        if state is not None: sources.add('rpc')
+        recipients = cps = None
         if f_sender:
             try:
-                stx, _, src = f_sender.result(timeout=config.UPSTREAM_TIMEOUT_S * 2); sources.add(src)
+                stx, _, src = f_sender.result(timeout=wait); sources.add(src)
                 recipients = sorted({t['to'] for t in stx if t['frm'] == frm and t['to']})
-            except (UpstreamError, Exception):
-                recipients = None
+                cps = sorted({(t['to'] if t['frm'] == frm else t['frm']) for t in stx} - {frm, ''})
+            except Exception:
+                pass
+        cross = []
+        for c, (fh, fs) in f_cross.items():
+            h = _quiet(fh, wait)
+            if h is None:
+                cross.append({'chain': c, 'ok': False}); continue
+            ctxs, ccapped, src = h; sources.add(src)
+            cross.append({'chain': c, 'ok': True, 'txs': ctxs, 'capped': ccapped, 'state': _quiet(fs, wait),
+                          'linked': self.bl.any_listed(engine_v2.features(to, ctxs)['counterparties'])})
+        l1 = _quiet(f_l1, wait)
+        if l1 is not None: sources.add('avalanche-data-api')
         feats = engine_v2.features(to, txs)
         linked = self.bl.any_listed(feats['counterparties'])
+        bl_status = self.bl.status()
         res = engine_v2.assess(to, chain, txs, capped, contract, self.bl.lookup(to), linked, self.bl.reported(to),
-                               recipients, history_ok, contract_ok)
+                               recipients, history_ok, contract_ok, sender_cps=cps, cross=cross, l1_chains=l1, state=state,
+                               bl_stats={'lists': len(bl_status['feeds']), 'addresses': bl_status['unique_addresses']}, sender=frm)
         out = {'request_id': uuid.uuid4().hex[:12], 'chain_id': chain, 'address': to, **res,
-               'trust_score': attestation.trust_score(res['level'], res['signals'], res['stats']['n_total']),
                'is_contract': contract.get('is_contract', False),
                'engine_version': config.ENGINE_VERSION, 'data_sources': sorted(sources) + ['blocklists'],
                'checked_at': int(time.time()), 'latency_ms': int((time.time() - t0) * 1000), 'cached': False,

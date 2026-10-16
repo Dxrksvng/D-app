@@ -107,6 +107,12 @@ class DataAPI:
             if i == HIST_DATAAPI_PAGES - 1: capped = True
         return out, capped
 
+    def active_chains(self, addr):
+        """Avalanche L1s (C-Chain and other EVM L1s indexed by the Data API) where addr has any activity."""
+        j = self._call(f'/v1/address/{addr}/chains') or {}
+        return [{'chain_id': int(c['chainId']) if str(c.get('chainId', '')).isdigit() else c.get('chainId'),
+                 'name': c.get('chainName') or str(c.get('chainId'))} for c in j.get('indexedChains', [])]
+
     def contract_info(self, chain, addr):
         j = self._call(f'/v1/chains/{chain}/addresses/{addr}')
         if not j: return {'is_contract': False}
@@ -188,7 +194,24 @@ class OnChain:
                 info.update(erc_type=meta.get('ercType'), name=meta.get('name'), symbol=meta.get('symbol')); src = 'rpc+avalanche-data-api'
             except UpstreamError:
                 pass
+        if info['is_contract'] and not info.get('erc_type'):
+            info.update(self._erc20_probe(chain, addr))   # works without any indexer: ask the contract itself
         return info, src
+
+    def _erc20_probe(self, chain, addr):
+        """ERC-20 if the contract answers decimals() and symbol() (eth_call, read-only)."""
+        try:
+            dec = self.rpc(chain, 'eth_call', [{'to': addr, 'data': '0x313ce567'}, 'latest'])
+            sym = self.rpc(chain, 'eth_call', [{'to': addr, 'data': '0x95d89b41'}, 'latest'])
+        except UpstreamError:
+            return {}
+        if not dec or len(dec) != 66 or not sym or len(sym) < 130:
+            return {}
+        try:
+            n = int(sym[66:130], 16); symbol = bytes.fromhex(sym[130:130 + 2 * n]).decode('utf-8', 'replace')
+        except ValueError:
+            symbol = None
+        return {'erc_type': 'ERC-20', 'symbol': symbol}
 
     def rpc(self, chain, method, params):
         body = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode()
@@ -200,6 +223,15 @@ class OnChain:
             raise UpstreamError(f'rpc {type(e).__name__}')
         if 'error' in j: raise UpstreamError(f"rpc {j['error'].get('message', '')[:80]}")
         return j.get('result')
+
+    def active_chains(self, addr):
+        return self.dataapi.active_chains(addr)
+
+    def account_state(self, chain, addr):
+        """Nonce (txs ever sent) and native balance straight from the chain's RPC; works even when no indexer has history."""
+        nonce = int(self.rpc(chain, 'eth_getTransactionCount', [addr, 'latest']), 16)
+        bal = int(self.rpc(chain, 'eth_getBalance', [addr, 'latest']), 16)
+        return {'nonce': nonce, 'balance_wei': bal}
 
     def get_tx(self, chain, tx_hash):
         """Full transaction + receipt status + block time from the chain's RPC (authoritative)."""
