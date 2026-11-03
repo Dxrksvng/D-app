@@ -1,4 +1,44 @@
-# RiskGuard PoC
+<div align="center">
+
+# RiskGuard
+
+**Check the destination address before you send crypto. Every reason explained, never blocked.**
+
+![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white) ![Dependencies none (stdlib)](https://img.shields.io/badge/Dependencies-none_(stdlib)-2ea44f?style=for-the-badge) ![Chains Avalanche · Ethereum](https://img.shields.io/badge/Chains-Avalanche_·_Ethereum-E84142?style=for-the-badge) ![Mode warn-only](https://img.shields.io/badge/Mode-warn--only-F59E0B?style=for-the-badge)
+
+</div>
+
+> Engine v2 uses only signals that passed the pre-registered E5 audit. The backend is Python standard library only, so there is nothing to install.
+
+## Tech stack
+
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=py,js,html,css,ts,docker,gcp&perline=10" alt="Tech stack" />
+</p>
+
+## How it works
+
+```mermaid
+flowchart LR
+    U([User]) --> W["Web UI / riskguard.js SDK"]
+    U --> S["MetaMask Snap\nin-wallet alert"]
+    W -->|"GET /v1/verify/address\n/v1/verify/tx"| API["backend/app.py\nHTTP API"]
+    S --> API
+    API --> SVC["service.py\nparallel fetch + 60 s cache"]
+    SVC --> SRC["sources.py\nAvalanche Data API\n-> Routescan fallback"]
+    SVC --> BL["blocklists.py\nScamSniffer, OFAC SDN,\nForta, MEW (6 h refresh)"]
+    SVC --> RPC["Chain RPC\neth_getCode"]
+    SRC --> ENG["engine_v2.py\nassess()"]
+    BL --> ENG
+    RPC --> ENG
+    ENG --> V{{"Verdict + reasons\n(never blocks)"}}
+    V --> W
+    V --> S
+    V --> ATT["attestation.py\nsigned on-chain memo\n+ trust score"]
+    ATT --> VER["verify.html\npublic seal check"]
+```
+
+---
 
 Checks the destination address before a user sends crypto, explains every reason, and never blocks.
 Engine v2 uses only signals that passed the pre-registered E5 audit (`../audit/report`).
